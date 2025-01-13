@@ -1,6 +1,6 @@
 import os
 from cffi import FFI
-from typing import List
+from typing import Any, Protocol
 
 from panda import LEN_TO_DLC
 from panda.tests.libpanda.safety_helpers import PandaSafety, setup_safety_helpers
@@ -12,7 +12,7 @@ ffi = FFI()
 
 ffi.cdef("""
 typedef struct {
-  unsigned char reserved : 1;
+  unsigned char fd : 1;
   unsigned char bus : 3;
   unsigned char data_len_code : 4;
   unsigned char rejected : 1;
@@ -25,8 +25,8 @@ typedef struct {
 """, packed=True)
 
 ffi.cdef("""
-int safety_rx_hook(CANPacket_t *to_send);
-int safety_tx_hook(CANPacket_t *to_push);
+bool safety_rx_hook(CANPacket_t *to_send);
+bool safety_tx_hook(CANPacket_t *to_push);
 int safety_fwd_hook(int bus_num, int addr);
 int set_safety_hooks(uint16_t mode, uint16_t param);
 """)
@@ -40,7 +40,6 @@ typedef struct {
 } can_ring;
 
 extern can_ring *rx_q;
-extern can_ring *txgmlan_q;
 extern can_ring *tx1_q;
 extern can_ring *tx2_q;
 extern can_ring *tx3_q;
@@ -64,9 +63,15 @@ class CANPacket:
   returned: int
   extended: int
   addr: int
-  data: List[int]
+  data: list[int]
 
-class Panda(PandaSafety):
+class Panda(PandaSafety, Protocol):
+  # CAN
+  tx1_q: Any
+  tx2_q: Any
+  tx3_q: Any
+  def can_set_checksum(self, p: CANPacket) -> None: ...
+
   # safety
   def safety_rx_hook(self, to_send: CANPacket) -> int: ...
   def safety_tx_hook(self, to_push: CANPacket) -> int: ...
