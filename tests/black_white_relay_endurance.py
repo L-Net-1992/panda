@@ -6,13 +6,12 @@
 
 
 import os
-import sys
 import time
 import random
 import argparse
 
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
-from panda import Panda  # noqa: E402
+from opendbc.car.structs import CarParams
+from panda import Panda
 
 def get_test_string():
   return b"test" + os.urandom(10)
@@ -30,8 +29,7 @@ def run_test(sleep_duration):
 
   # make sure two pandas are connected
   if len(pandas) != 2:
-    print("Connect white/grey and black panda to run this test!")
-    assert False
+    raise Exception("Connect white/grey and black panda to run this test!")
 
   # connect
   pandas[0] = Panda(pandas[0])
@@ -48,12 +46,11 @@ def run_test(sleep_duration):
     black_panda = pandas[1]
     other_panda = pandas[0]
   else:
-    print("Connect white/grey and black panda to run this test!")
-    assert False
+    raise Exception("Connect white/grey and black panda to run this test!")
 
   # disable safety modes
-  black_panda.set_safety_mode(Panda.SAFETY_ALLOUTPUT)
-  other_panda.set_safety_mode(Panda.SAFETY_ALLOUTPUT)
+  black_panda.set_safety_mode(CarParams.SafetyModel.allOutput)
+  other_panda.set_safety_mode(CarParams.SafetyModel.allOutput)
 
   # test health packet
   print("black panda health", black_panda.health())
@@ -73,9 +70,9 @@ def run_test(sleep_duration):
 
     if (time.time() - temp_start_time) > 3600 * 6:
       # Toggle relay
-      black_panda.set_safety_mode(Panda.SAFETY_SILENT)
+      black_panda.set_safety_mode(CarParams.SafetyModel.silent)
       time.sleep(1)
-      black_panda.set_safety_mode(Panda.SAFETY_ALLOUTPUT)
+      black_panda.set_safety_mode(CarParams.SafetyModel.allOutput)
       time.sleep(1)
       temp_start_time = time.time()
 
@@ -94,7 +91,7 @@ def test_buses(black_panda, other_panda, direction, test_array, sleep_duration):
     print("\ntest can: ", send_bus, " OBD: ", obd)
 
     # set OBD on black panda
-    black_panda.set_gmlan(True if obd else None)
+    black_panda.set_obd(True if obd else None)
 
     # clear and flush
     if direction:
@@ -130,15 +127,14 @@ def test_buses(black_panda, other_panda, direction, test_array, sleep_duration):
 
     loop_buses = []
     for loop in cans_loop:
-      if (loop[0] != at) or (loop[2] != st):
+      if (loop[0] != at) or (loop[1] != st):
         content_errors += 1
 
-      print("  Loop on bus", str(loop[3]))
-      loop_buses.append(loop[3])
+      print("  Loop on bus", str(loop[2]))
+      loop_buses.append(loop[2])
     if len(cans_loop) == 0:
       print("  No loop")
-      if not os.getenv("NOASSERT"):
-        assert False
+      assert os.getenv("NOASSERT")
 
     # test loop buses
     recv_buses.sort()
@@ -148,8 +144,7 @@ def test_buses(black_panda, other_panda, direction, test_array, sleep_duration):
         zero_bus_errors += 1
       else:
         nonzero_bus_errors += 1
-      if not os.getenv("NOASSERT"):
-        assert False
+      assert os.getenv("NOASSERT")
     else:
       print("  TEST PASSED")
 
@@ -166,5 +161,5 @@ if __name__ == "__main__":
     while True:
       run_test(sleep_duration=args.sleep)
   else:
-    for i in range(args.n):
+    for _ in range(args.n):
       run_test(sleep_duration=args.sleep)

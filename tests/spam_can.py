@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 import os
-import sys
 import random
 
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), ".."))
-from panda import Panda  # noqa: E402
+from opendbc.car.structs import CarParams
+from panda import Panda
 
 def get_test_string():
   return b"test" + os.urandom(10)
 
 if __name__ == "__main__":
   p = Panda()
-  p.set_safety_mode(Panda.SAFETY_ALLOUTPUT)
+  p.set_safety_mode(CarParams.SafetyModel.allOutput)
 
   print("Spamming all buses...")
   while True:

@@ -5,18 +5,19 @@ import time
 import struct
 import itertools
 import threading
-from typing import Any, Union, List
+from typing import Any
 
+from opendbc.car.structs import CarParams
 from panda import Panda
 
 JUNGLE = "JUNGLE" in os.environ
 if JUNGLE:
-  from panda_jungle import PandaJungle # pylint: disable=import-error
+  from panda import PandaJungle
 
 # Generate unique messages
 NUM_MESSAGES_PER_BUS = 10000
 messages = [bytes(struct.pack("Q", i)) for i in range(NUM_MESSAGES_PER_BUS)]
-tx_messages = list(itertools.chain.from_iterable(map(lambda msg: [[0xaa, None, msg, 0], [0xaa, None, msg, 1], [0xaa, None, msg, 2]], messages)))
+tx_messages = list(itertools.chain.from_iterable([[0xaa, msg, 0], [0xaa, msg, 1], [0xaa, msg, 2]] for msg in messages))
 
 def flood_tx(panda):
   print('Sending!')
@@ -35,7 +36,7 @@ def flood_tx(panda):
 
 if __name__ == "__main__":
   serials = Panda.list()
-  receiver: Union[Panda, PandaJungle]
+  receiver: Panda | PandaJungle
   if JUNGLE:
     sender = Panda()
     receiver = PandaJungle()
@@ -44,15 +45,15 @@ if __name__ == "__main__":
       raise Exception("Connect two pandas to perform this test!")
     sender = Panda(serials[0])
     receiver = Panda(serials[1])
-    receiver.set_safety_mode(Panda.SAFETY_ALLOUTPUT)
+    receiver.set_safety_mode(CarParams.SafetyModel.allOutput)
 
-  sender.set_safety_mode(Panda.SAFETY_ALLOUTPUT)
+  sender.set_safety_mode(CarParams.SafetyModel.allOutput)
 
   # Start transmisson
   threading.Thread(target=flood_tx, args=(sender,)).start()
 
   # Receive as much as we can, and stop when there hasn't been anything for a second
-  rx: List[Any] = []
+  rx: list[Any] = []
   old_len = 0
   last_change = time.monotonic()
   while time.monotonic() - last_change < 1:
@@ -65,6 +66,6 @@ if __name__ == "__main__":
 
   # Check if we received everything
   for bus in range(3):
-    received_msgs = set(map(lambda m: bytes(m[2]), filter(lambda m, b=bus: m[3] == b, rx))) # type: ignore
+    received_msgs = {bytes(m[1]) for m in filter(lambda m, b=bus: m[2] == b, rx)} # type: ignore
     dropped_msgs = set(messages).difference(received_msgs)
     print(f"Bus {bus} dropped msgs: {len(list(dropped_msgs))} / {len(messages)}")

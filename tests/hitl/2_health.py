@@ -1,34 +1,10 @@
 import time
 import pytest
 
+from opendbc.car.hyundai.values import HyundaiSafetyFlags
+from opendbc.car.structs import CarParams
 from panda import Panda
-from panda_jungle import PandaJungle  # pylint: disable=import-error
-from panda.tests.hitl.conftest import PandaGroup
 
-
-def test_ignition(p, panda_jungle):
-  # Set harness orientation to #2, since the ignition line is on the wrong SBU bus :/
-  panda_jungle.set_harness_orientation(PandaJungle.HARNESS_ORIENTATION_2)
-  p.reset()
-
-  for ign in (True, False):
-    panda_jungle.set_ignition(ign)
-    time.sleep(0.1)
-    assert p.health()['ignition_line'] == ign
-
-
-@pytest.mark.test_panda_types(PandaGroup.GEN2)
-def test_orientation_detection(p, panda_jungle):
-  seen_orientations = []
-  for i in range(3):
-    panda_jungle.set_harness_orientation(i)
-    p.reset()
-
-    detected_harness_orientation = p.health()['car_harness_status']
-    print(f"Detected orientation: {detected_harness_orientation}")
-    if (i == 0 and detected_harness_orientation != 0) or detected_harness_orientation in seen_orientations:
-      assert False
-    seen_orientations.append(detected_harness_orientation)
 
 @pytest.mark.skip_panda_types((Panda.HW_TYPE_DOS, ))
 def test_voltage(p):
@@ -62,10 +38,10 @@ def test_hw_type(p):
 def test_heartbeat(p, panda_jungle):
   panda_jungle.set_ignition(True)
   # TODO: add more cases here once the tests aren't super slow
-  p.set_safety_mode(mode=Panda.SAFETY_HYUNDAI, param=Panda.FLAG_HYUNDAI_LONG)
+  p.set_safety_mode(mode=CarParams.SafetyModel.hyundai, param=HyundaiSafetyFlags.FLAG_HYUNDAI_LONG)
   p.send_heartbeat()
-  assert p.health()['safety_mode'] == Panda.SAFETY_HYUNDAI
-  assert p.health()['safety_param'] == Panda.FLAG_HYUNDAI_LONG
+  assert p.health()['safety_mode'] == CarParams.SafetyModel.hyundai
+  assert p.health()['safety_param'] == HyundaiSafetyFlags.FLAG_HYUNDAI_LONG
 
   # shouldn't do anything once we're in a car safety mode
   p.set_heartbeat_disabled()
@@ -74,7 +50,7 @@ def test_heartbeat(p, panda_jungle):
 
   h = p.health()
   assert h['heartbeat_lost']
-  assert h['safety_mode'] == Panda.SAFETY_SILENT
+  assert h['safety_mode'] == CarParams.SafetyModel.silent
   assert h['safety_param'] == 0
   assert h['controls_allowed'] == 0
 
